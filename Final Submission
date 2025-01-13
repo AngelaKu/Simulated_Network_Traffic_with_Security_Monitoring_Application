@@ -1,0 +1,111 @@
+import plotly.graph_objs as go
+from collections import deque
+import random
+import time
+from IPython.display import display
+from google.colab import output
+# Enable custom widget manager in Google Colab
+output.enable_custom_widget_manager()
+# Function to simulate network traffic stats
+def simulate_network_traffic():
+    """Simulates network traffic with smooth fluctuations and occasional spikes."""
+    # Simulate smoother traffic with smaller random fluctuations
+    sent = random.randint(500, 1500)
+    recv = random.randint(500, 1500)
+
+    # Occasionally introduce spikes
+    if random.random() < 0.1:  # 10% chance of a spike
+        sent += random.randint(10000, 20000)
+        recv += random.randint(15000, 20000)
+
+    return sent, recv  # Return the simulated sent and received bytes
+# Function to check for anomalies in traffic
+def detect_anomalies(sent_data, recv_data):
+    """Detects anomalies in the network traffic data."""
+    sent_list = list(sent_data)  # Convert deque to list for easier manipulation
+    recv_list = list(recv_data)  # Convert deque to list for easier manipulation
+
+    # Check for security anomalies
+    if len(sent_list) > 1 and len(recv_list) > 1:  # Ensure there's enough data to compare
+        if (sent_list[-1] > sent_list[-2] * 2) or (recv_list[-1] > recv_list[-2] * 2):
+            print("Security Alert! Unusual spike detected in traffic.")  # Detect large spikes
+        elif max(sent_list[-10:]) > 50000 or max(recv_list[-10:]) > 50000:  # Example threshold
+            print("Security Alert! Unusually high traffic detected.")  # Detect unusually high traffic
+        elif sum([1 for i in range(1, min(10, len(sent_list))) if sent_list[-i] > sent_list[-i-1] * 1.5]) > 3:
+            print("Security Alert! Multiple small spikes detected in traffic.")  # Detect multiple small spikes
+# Function to initialize and display the Plotly graph
+def initialize_graph():
+    """Initializes the Plotly graph and displays it."""
+    fig = go.FigureWidget()  # Create the initial Plotly FigureWidget
+
+    trace_sent = fig.add_scatter(x=[], y=[], mode='lines', name='Bytes Sent', line=dict(color='blue'))  # Add sent data trace
+    trace_recv = fig.add_scatter(x=[], y=[], mode='lines', name='Bytes Received', line=dict(color='green'))  # Add received data trace
+
+    # Update the layout of the graph
+    fig.update_layout(
+        title="Simulated Network Traffic with Security Monitoring",  # Set the graph title
+        xaxis_title="Time (s)",  # Set the X-axis title
+        yaxis_title="Bytes",  # Set the Y-axis title
+        yaxis=dict(range=[0, 1e4]),  # Set initial Y-axis limits
+        showlegend=True  # Display legend
+    )
+
+    display(fig)  # Display the graph
+    return fig  # Return the figure widget for further updates
+# Function to update the graph with new data
+def update_graph(fig, time_data, sent_data, recv_data):
+    """Updates the Plotly graph with new traffic data."""
+    with fig.batch_update():  # Use batch_update to minimize redraws and improve performance
+        fig.data[0].x = list(time_data)  # Update the X data for sent bytes
+        fig.data[0].y = list(sent_data)  # Update the Y data for sent bytes
+        fig.data[1].x = list(time_data)  # Update the X data for received bytes
+        fig.data[1].y = list(recv_data)  # Update the Y data for received bytes
+
+        # Dynamically update Y-axis limits based on data
+        fig.update_layout(yaxis=dict(range=[0, max(max(sent_data), max(recv_data)) * 1.1]))
+# Main function to run the real-time simulation and visualization
+def main():
+    """Main function to simulate network traffic and visualize it in real-time."""
+    # Initialize data storage
+    sent_data = deque([0], maxlen=100)  # Store sent data with a maximum length of 100
+    recv_data = deque([0], maxlen=100)  # Store received data with a maximum length of 100
+    time_data = deque([0], maxlen=100)  # Store time data with a maximum length of 100
+
+    fig = initialize_graph()  # Initialize and display the graph
+
+    # Update the data every second
+    for i in range(1, 101):
+        sent, recv = simulate_network_traffic()  # Simulate network traffic
+        sent_data.append(sent_data[-1] + sent)  # Update sent data with cumulative sum
+        recv_data.append(recv_data[-1] + recv)  # Update received data with cumulative sum
+        time_data.append(i)  # Append the current time step
+
+        update_graph(fig, time_data, sent_data, recv_data)  # Update the graph with new data
+        detect_anomalies(sent_data, recv_data)  # Check for and report any anomalies
+
+        time.sleep(1)  # Pause for a second before the next update
+
+    # Test Scenarios
+    test_scenario_one()
+    test_scenario_two()
+# Test scenario functions
+def test_scenario_one():
+    """Simulate a spike in traffic and verify anomaly detection."""
+    print("Running Test Scenario One: Simulate Spike")
+    sent_data = deque([1000]*10, maxlen=10)
+    recv_data = deque([1000]*10, maxlen=10)
+    detect_anomalies(sent_data, recv_data)  # Should not trigger an alert
+    sent_data.append(30000)  # Simulate a spike in traffic
+    detect_anomalies(sent_data, recv_data)  # Should trigger a spike alert
+
+def test_scenario_two():
+    """Simulate smooth traffic and verify no false positives."""
+    print("Running Test Scenario Two: Smooth Traffic")
+    sent_data = deque([random.randint(900, 1100) for _ in range(10)], maxlen=10)
+    recv_data = deque([random.randint(900, 1100) for _ in range(10)], maxlen=10)
+    detect_anomalies(sent_data, recv_data)  # Should not trigger any alert
+
+
+
+
+
