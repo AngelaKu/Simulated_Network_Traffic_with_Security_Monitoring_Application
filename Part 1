@@ -1,0 +1,63 @@
+import plotly.graph_objs as go
+from collections import deque
+import random
+import time
+from IPython.display import display
+from google.colab import output
+def simulate_network_traffic():
+  """Simulates mostly normal network traffic with occasional spikes."""
+  # Normal traffic range
+  sent = random.randint(1000, 2000)
+  recv = random.randint(1000, 2000)
+
+  # Occasionally introduce spikes
+  if random.random() < 0.05: # 5% chance of a spike
+    sent += random.randint(10000, 15000)
+    recv += random.randint(10000, 15000)
+  return sent, recv
+def detect_anomalies(sent_data, recv_data, threshold):
+  """Detects anomalies in the network traffic data."""
+  if sent_data[-1] >= threshold or recv_data[-1] >= threshold:
+    print("Security Alert! Traffic exceeded the threshold.")
+sent_data = deque(maxlen=200)
+recv_data = deque(maxlen=200)
+time_data = deque(maxlen=200)
+threshold = 10000  # Example threshold for alerting
+trace_sent = go.Scatter(x=[], y=[], mode='lines', name='Bytes Sent', line=dict(color='blue'))
+trace_recv = go.Scatter(x=[], y=[], mode='lines', name='Bytes Received', line=dict(color='green'))
+
+threshold_line = go.Scatter(
+x=[0],
+y=[threshold],
+mode='lines',
+name=f'Threshold ({threshold} bytes)',
+line=dict(color='red', dash='dot')
+)
+fig = go.FigureWidget(data=[trace_sent, trace_recv, threshold_line])
+fig.update_layout(
+  title="Simulated Network Traffic with Security Monitoring",
+  xaxis_title="Time (s)",
+  yaxis_title="Bytes",
+  yaxis=dict(range=[0, threshold * 1.2]),
+  showlegend=True
+)
+
+display(fig)
+for i in range(1, 101):
+  sent, recv = simulate_network_traffic()
+
+  sent_data.append(sent)
+  recv_data.append(recv)
+  time_data.append(i)
+
+  with fig.batch_update():
+    fig.data[0].x = list(time_data) # Update the X data for Bytes Sent
+    fig.data[0].y = list(sent_data) # Update the Y data for Bytes Sent
+    fig.data[1].x = list(time_data) # Update the X data for Bytes Received
+    fig.data[1].y = list(recv_data) # Update the Y data for Bytes Received
+    fig.data[2].x = [0, i] # Extend the threshold line to cover the entire x-axis
+    fig.data[2].y = [threshold, threshold] # Keep the threshold line at the threshold value
+
+  detect_anomalies(sent_data, recv_data, threshold)
+  time.sleep(1)
+time.sleep(1)
